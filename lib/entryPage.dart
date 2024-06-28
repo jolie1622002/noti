@@ -8,8 +8,10 @@ import 'package:noti/common/convert%20time.dart';
 import 'package:noti/global.dart';
 import 'package:provider/provider.dart';
 import 'package:noti/notificationssss.dart';
+import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'Success.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class EntryPage extends StatefulWidget {
   const EntryPage({Key? key}) : super(key: key);
@@ -21,10 +23,12 @@ class EntryPage extends StatefulWidget {
 class _EntryPageState extends State<EntryPage> {
   late TextEditingController nameController;
   late TextEditingController dosageController;
-  late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
   late NewEntryBlock _newEntryBlock;
 
   late GlobalKey<ScaffoldState> _scaffoldKey;
+
   @override
   void dispose() {
     super.dispose();
@@ -38,10 +42,12 @@ class _EntryPageState extends State<EntryPage> {
     super.initState();
     nameController = TextEditingController();
     dosageController = TextEditingController();
-    flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-    _newEntryBlock = NewEntryBlock();
-    initializeNotifications();
 
+    requestPermissions();
+    initializeNotifications();
+    tz.initializeTimeZones();
+
+    _newEntryBlock = NewEntryBlock();
     _scaffoldKey = GlobalKey<ScaffoldState>();
   }
 
@@ -180,52 +186,89 @@ class _EntryPageState extends State<EntryPage> {
     return ids;
   }
 
+  /// already initialized in main
   initializeNotifications() async {
     var initSettingAndroid =
-        const AndroidInitializationSettings('@mipmap/launcher_icon');
+        const AndroidInitializationSettings('@mipmap/ic_launcher');
     var initsetting = InitializationSettings(android: initSettingAndroid);
     await flutterLocalNotificationsPlugin.initialize(initsetting);
   }
 
-  Future onSelectNotification(String? payload) async {
-    if (payload != null) {
-      debugPrint('notification payload:$payload');
-    }
-    await Navigator.push(context,
-        MaterialPageRoute(builder: (context) => const NotificationPage()));
+  Future<void> requestPermissions() async {
+    // await flutterLocalNotificationsPlugin
+    //     .resolvePlatformSpecificImplementation<
+    //         AndroidFlutterLocalNotificationsPlugin>()
+    //     ?.requestExactAlarmsPermission();
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+    print(await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.areNotificationsEnabled());
   }
 
   Future<void> scheduleNotif(Medicine medicine) async {
-    var hour = int.parse(medicine.startTime![0] + medicine.startTime![1]);
-    var ogvalue = hour;
-    var minute = int.parse(medicine.startTime![2] + medicine.startTime![3]);
-    var AndroidPlatform = const AndroidNotificationDetails(
-        "repeat daily at time channel id", "repeat daily at time channel name",
-        importance: Importance.max,
-        ledColor: Colors.red,
-        ledOffMs: 1000,
-        ledOnMs: 1000,
-        enableLights: true);
-    var platformSpecifies = NotificationDetails(android: AndroidPlatform);
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
 
-    for (int i = 0; i < (24 / medicine.interval!).floor(); i++) {
-      if (hour + (medicine.interval! * i) > 23) {
-        hour = hour + (medicine.interval! * i) - 24;
-      } else {
-        hour = hour + (medicine.interval! * i);
-      }
-      await flutterLocalNotificationsPlugin.zonedSchedule(
-        int.parse(medicine!.notiIDs![i]),
-        "reminder:${medicine.medicineName}",
-        "its time to take the bill",
-        tz.TZDateTime.now(tz.local).add(Duration(seconds: 1)),
-        platformSpecifies,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        androidAllowWhileIdle: true,
-      );
-      hour = ogvalue;
+    // Notification details
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'medicine_channel_id',
+      'Medicine Reminders',
+      importance: Importance.high,
+      priority: Priority.high,
+      ticker: 'ticker',
+      showWhen: false,
+    );
+
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+    );
+
+    final scheduledDate =
+        _nextInstanceOfMedicine(medicine.getStartTime, medicine.getInterval);
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      // medicine.hashCode,
+      0,
+      'Time for ${medicine.getName}',
+      'Take ${medicine.getDosage} every ${medicine.getInterval} hours',
+      // scheduledDate,
+      scheduledDate,
+      platformChannelSpecifics,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+      payload: medicine.toJson().toString(),
+    );
+  }
+
+  tz.TZDateTime _nextInstanceOfMedicine(String startTime, int interval) {
+    final now = tz.TZDateTime.now(tz.local);
+    final startTimeHour = int.parse(startTime.substring(0, 2));
+    final startTimeMinute = int.parse(startTime.substring(2, 4));
+
+    var scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      startTimeHour - 2,
+      startTimeMinute,
+    );
+
+    print(scheduledDate);
+    print(tz.TZDateTime.now(tz.local));
+    print(tz.TZDateTime.now(tz.UTC));
+
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(Duration(days: 1));
     }
+
+    return scheduledDate;
   }
 }
 

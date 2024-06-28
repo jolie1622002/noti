@@ -6,21 +6,19 @@ import 'package:sizer/sizer.dart';
 import 'notificationssss.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-FlutterLocalNotificationsPlugin();
+Future<void> requestNotificationPermission() async {
+  var status = await Permission.notification.request();
+  if (status.isGranted) {
+  } else {}
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  const AndroidInitializationSettings initializationSettingsAndroid =
-  AndroidInitializationSettings('@mipmap/ic_launcher');
-
-  final InitializationSettings initializationSettings = InitializationSettings(
-    android: initializationSettingsAndroid,
-  );
-
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  // Initialize notification permissions
+  await requestNotificationPermission();
 
   runApp(const MyApp());
 }
@@ -90,12 +88,14 @@ class _TimeDisplayState extends State<TimeDisplay> {
   void initState() {
     super.initState();
     // Initialize the stream with a timer that ticks every second
-    _clockStream = Stream<DateTime>.periodic(const Duration(seconds: 1), (count) {
+    _clockStream =
+        Stream<DateTime>.periodic(const Duration(seconds: 1), (count) {
       return DateTime.now();
     });
 
     // Initialize the time formatter
-    _timeFormatter = DateFormat.Hm(); // Hm for 24-hour format, hh:mm a for 12-hour format
+    _timeFormatter =
+        DateFormat.Hm(); // Hm for 24-hour format, hh:mm a for 12-hour format
   }
 
   @override

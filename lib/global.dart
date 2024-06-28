@@ -12,22 +12,24 @@ class GlobalBloc {
     _medicineList$ = BehaviorSubject<List<Medicine>>.seeded([]);
     _loadMedicineList();
   }
-  Future updateMedicineList(Medicine newMedicine) async{
-    var blockList=medicineList$!.value;
+
+  Future updateMedicineList(Medicine newMedicine) async {
+    var blockList = medicineList$!.value;
     blockList.add(newMedicine);
     _medicineList$!.add(blockList);
-    Map<String,dynamic> tempMap=newMedicine.toJson();
-    SharedPreferences? sharedUser=await SharedPreferences.getInstance();
-    String newMedicineJson=jsonEncode((tempMap));
-    List<String> medicineJsonList=[];
-    if(sharedUser.getStringList('medicines')==null){
+    Map<String, dynamic> tempMap = newMedicine.toJson();
+    SharedPreferences? sharedUser = await SharedPreferences.getInstance();
+    String newMedicineJson = jsonEncode((tempMap));
+    List<String> medicineJsonList = [];
+    if (sharedUser.getStringList('medicines') == null) {
       medicineJsonList.add(newMedicineJson);
-    }else{
-      medicineJsonList=sharedUser.getStringList(('medicines'))!;
+    } else {
+      medicineJsonList = sharedUser.getStringList(('medicines'))!;
       medicineJsonList.add(newMedicineJson);
     }
     sharedUser.setStringList("medicine", medicineJsonList);
   }
+
   Future<void> _loadMedicineList() async {
     SharedPreferences sharedUser = await SharedPreferences.getInstance();
     List<String>? jsonList = sharedUser.getStringList('medicines');
@@ -60,7 +62,8 @@ class GlobalBloc {
 
   Future<void> _saveMedicineList(List<Medicine> medicineList) async {
     SharedPreferences sharedUser = await SharedPreferences.getInstance();
-    List<String> jsonList = medicineList.map((medicine) => json.encode(medicine.toJson())).toList();
+    List<String> jsonList =
+        medicineList.map((medicine) => json.encode(medicine.toJson())).toList();
     await sharedUser.setStringList('medicines', jsonList);
   }
 
